@@ -1,6 +1,9 @@
 import ast
 import builtins
+import io
 import os
+import re
+import sys
 
 from lark import Lark, Transformer, exceptions
 
@@ -32,23 +35,26 @@ class _TreeToJSON(Transformer):
     dict = dict
 
 
-class JSON:
-    def __init__(self, g_path=None):
-        if g_path is None:
-            with builtins.open(rf"{os.getcwd()}\src\parser\json\define\grammar.lark", "r", encoding="utf-8") as gf:
-                self.grammar = Lark(gf, start="value", parser="lalr", transformer=_TreeToJSON())
+class JSONParser:
+    def __init__(self):
+        self._setup()
 
-        else:
-            with builtins.open(g_path, "r", encoding="utf-8") as gf:
-                self.grammar = Lark(gf, start="value", parser="lalr", transformer=_TreeToJSON())
+        with builtins.open(rf"{os.getcwd()}\src\parser\json\define\grammar.lark", "r", encoding="utf-8") as gf:
+            self.grammar = Lark(gf, start="value", parser="lalr", lexer="standard",
+                                propagate_positions=False, maybe_placeholders=False, transformer=_TreeToJSON())
+
+    def _setup(self):
+        sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
     def parse(self, text):
         try:
-            return ast.literal_eval(str(self.grammar.parse(text.translate(str.maketrans({"'": "\""})))).translate(str.maketrans({"'": "\""})))
+            return ast.literal_eval(str(self.grammar.parse(text.translate(str.maketrans({"'": "\""})))))
 
         except exceptions.UnexpectedInput as e:
-            raise _exceptions.InputError(e, "入力された JSON のパースに失敗しました - JSON が破損している可能性があります")
+            hint = re.findall(r"\d+", str(e))[::-1][:2:]
 
-
-with open("src/parser/json/runtime/test.json", "r") as f:
-    print(JSON().parse(f.read())[0])
+            raise _exceptions.ParsingError(f"""JSON のパースを試みましたが失敗しました:
+                                            理由 - JSON が破損しています
+                                            破損している箇所 - {hint[1]} 行目の {hint[0]} 文字目""")
