@@ -4,6 +4,7 @@ import io
 import os
 import re
 import sys
+from typing import Any
 
 from lark import Lark, Transformer, exceptions
 
@@ -35,25 +36,25 @@ class _TreeToJSON(Transformer):
     dict = dict
 
 
-class JSONParser:
-    def __init__(self):
+class JSONParser(object):
+    def __init__(self) -> None:
         self._setup()
 
         with builtins.open(rf"{os.getcwd()}\src\parser\json\define\grammar.lark", "r", encoding="utf-8") as gf:
             self.grammar = Lark(gf, start="value", parser="lalr", lexer="standard",
                                 propagate_positions=False, maybe_placeholders=False, transformer=_TreeToJSON())
 
-    def _setup(self):
+    def _setup(self) -> None:
         sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
-    def parse(self, text):
+    def parse(self, __text: str) -> Any:
         try:
-            return ast.literal_eval(str(self.grammar.parse(text.translate(str.maketrans({"'": "\""})))))
+            return ast.literal_eval(str(self.grammar.parse(__text.translate(str.maketrans({"'": "\""})))))
 
         except exceptions.UnexpectedInput as e:
-            hint = re.findall(r"\d+", str(e))[::-1][:2:]
+            hint: list[Any] = re.findall(r"\d+", str(e))[::-1][:2:]
 
             raise _exceptions.ParsingError(f"""JSON のパースを試みましたが失敗しました:
                                             理由 - JSON が破損しています
